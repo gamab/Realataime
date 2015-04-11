@@ -53,3 +53,11 @@ void loop() {
 }
 
 
+/**
+ * Watchdog timer interrupt.
+ */
+ISR(WDT_vect) 
+{
+// Include your code here - be careful not to use functions they may cause the interrupt to hang and
+// prevent a reset.
+}
