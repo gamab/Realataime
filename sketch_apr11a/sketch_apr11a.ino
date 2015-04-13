@@ -10,28 +10,61 @@ Thanks to http://letmeknow.fr/blog/tuto-ajouter-le-bluetooth-au-arduino/ too for
 
 #include <avr/wdt.h>
 
-//Commands
-#define C_START ((const char)'s')
-#define C_START_INSEC ((const char)'z')
+//Sens
+#define FORTH                     'F'
+#define BACK                      'B'
 
+//Motor
+#define MOTOR1                     1
+#define MOTOR2                     2
+#define MOTOR_BOTH                 3
 
 //Returns
-#define R_START_OK               "START OK"
-#define R_START_INSEC_OK         "START INSEC OK"
-#define R_ERREUR_UNKNOWN_COMMAND "ERREUR UNKNOWN COMMAND"
+#define ACK                       'Y'
+#define NACK                      'N'
 
+//Commandes
+#define CMD_START_WATCHDOG        'W'
+#define CMD_START_INSECURELY      'u'
+#define CMD_RELOAD_WATCHDOG       'w'
+#define CMD_GET_VBAT              'v'
+#define CMD_MOVE                  'M'     //USAGE M motor sens velocity
+//#define CMD_SET_MOTORS            'm'
+//#define CMD_TURN                  'T'
+//#define CMD_IS_BUSY               'b'
+//#define CMD_PING                  'p'
+//#define CMD_GET_ODO               'o'
+//#define CMD_RESET                 'r'
+//#define CMD_GET_VERSION           'V'
+//#define CMD_GET_SENSOR            's'
 
-//Movements
-#define MVT_FORTH  "FORTH"
-#define MVT_BACK   "BACK"
-#define MVT_RIGHT  "RIGH"
-#define MVT_LEFT   "LEFT"
-
-//Motors speed
-#define SPEED_HIGH "HIGH"
-#define SPEED_LOW  "LOW"
-
+//Indicate wether the robot has started or not
 int robot_started;
+
+/*****MOTORS*****/
+//Here are the pins we are using for the motors
+/** 
+ * On the L298 :
+ * IN1  |   IN2   |   Spin
+ * 0    |   1     |   Clockwise
+ * 1    |   0     |   Anticlockwise
+ **/
+
+//MOTOR1:
+const int pwm1 = 3;
+const int in1 = 2;
+const int in2 = 4;
+
+//MOTOR2:
+const int pwm2 = 6;
+const int in3 = 7;
+const int in4 = 8;
+/***** *****/
+ 
+
+//une entrée analogique (A0) pour régler la vitesse manuellement
+int speed1;
+
 
 /**
  * Init function
@@ -42,6 +75,23 @@ void setup() {
   
   //Robot is stopped at first
   robot_started = 0;
+  
+  //preparing motors
+  pinMode(pwm1, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);  
+  pinMode(pwm2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  
+    
+  //motors : stop forth
+  analogWrite(pwm1,0);
+  digitalWrite(in1,LOW);
+  digitalWrite(in2,HIGH);
+  analogWrite(pwm2,0);
+  digitalWrite(in3,LOW);
+  digitalWrite(in4,HIGH);
 }
 
 /**
@@ -76,33 +126,151 @@ void watchdogSetup(void) {
  * Function loop
  */
 void loop() {
-  
-  char read;
+
+  char br;
+  char sens;
+  byte velocity;
+  byte motor;
   
   if (Serial.available()>0) {
     //Reads a byte from the serial interface
-    read = Serial.read();
+    br = Serial.read();
     
     if (!robot_started) {
-      switch (read) {
-        case C_START :
+      switch (br) {
+        case CMD_START_WATCHDOG :
           //start watchdog
           watchdogSetup();
           robot_started = 1;
-          Serial.println(R_START_OK);      
+          Serial.println(ACK);      
           break;
-        case C_START_INSEC :
+        case CMD_START_INSECURELY :
           //nothing atm
           robot_started = 1;
-          Serial.println(R_START_INSEC_OK);
+          Serial.println(ACK);
           break;
         default :
-          Serial.println(R_ERREUR_UNKNOWN_COMMAND);      
+          Serial.println(NACK);      
+      }
+    }
+    else {
+      switch (br) {
+        //Maybe we should put the reload of the watchdog on a separate timer
+        //to force update precisely every seconds as they were doing it
+        case CMD_RELOAD_WATCHDOG :
+          wdt_reset();
+          Serial.println(ACK); 
+          break;
+        case CMD_GET_VBAT :
+          //TO BE COMPLETED
+          Serial.println(NACK); 
+          break;
+        case CMD_MOVE :
+          //Only possible if we have all bytes we need
+          if (Serial.available()>=3) {
+            //Getting motor sens of the spin and velocity
+            motor = Serial.read();
+            sens = Serial.read();
+            velocity = Serial.read();
+            
+            if (updateMotor(motor,sens,velocity)) {
+              Serial.println(ACK); 
+            }
+            else {
+              Serial.println(NACK); 
+            }
+            
+          }
+          else {
+            Serial.println(NACK);
+          }
+          break;
+        default :
+          Serial.println(NACK); 
       }
     }
   }
 }
 
+/**
+ * Function that updates the speed and the spin of a motor
+ * or both if motor is MOTOR_BOTH
+ * @PARAM :
+ * motor    : the motor to update
+ * sens     : the sens of the spin
+ * velocity : the velocity of the motor
+ * @RETURN
+ * 0 if sens or motor where not expected
+ * 1 if the update is done
+ */
+byte updateMotor(byte motor, char sens, byte velocity) {
+  byte sensOk = 1;
+  byte motorOk = 1;
+  
+  if (motor==MOTOR1) {
+      if (sens==FORTH) {
+        digitalWrite(in1,LOW);
+        digitalWrite(in2,HIGH);
+      }
+      else if (sens==BACK) {
+        digitalWrite(in1,HIGH);
+        digitalWrite(in2,LOW);
+      }
+      else {
+        sensOk=0;
+      }
+      
+      //Changing the velocity
+      if (sensOk)
+        analogWrite(pwm1,velocity);
+  }
+  else if (motor==MOTOR2) {
+      if (sens==FORTH) {
+        digitalWrite(in3,LOW);
+        digitalWrite(in4,HIGH);
+      }
+      else if (sens==BACK) {
+        digitalWrite(in3,HIGH);
+        digitalWrite(in4,LOW);
+      }
+      else {
+        sensOk=0;
+      }
+      
+      //Changing the velocity
+      if (sensOk)
+        analogWrite(pwm2,velocity);
+  }
+  else if (motor==MOTOR_BOTH) {
+    if (sens==FORTH) {
+      digitalWrite(in1,LOW);
+      digitalWrite(in2,HIGH);
+      digitalWrite(in3,LOW);
+      digitalWrite(in4,HIGH);
+    }
+    else if (sens==BACK) {
+      digitalWrite(in1,HIGH);
+      digitalWrite(in2,LOW);
+      digitalWrite(in3,HIGH);
+      digitalWrite(in4,LOW);
+    }
+    else {
+      sensOk=0;
+    }
+    
+    //Changing the velocity
+    if (sensOk)
+  {
+      analogWrite(pwm2,velocity);
+      analogWrite(pwm2,velocity);
+    } 
+  }
+  else {
+    motorOk = 0;
+  }
+  
+  return motorOk && sensOk;
+}
 
 /**
  * Watchdog timer interrupt.
