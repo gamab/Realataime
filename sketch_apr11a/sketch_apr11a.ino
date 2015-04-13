@@ -5,17 +5,43 @@ Gabriel   MABILLE
 Frederic  RECOULES
 
 Huge thanks to Mr Nicolas Larsen : http://forum.arduino.cc/index.php?action=dlattach;topic=63651.0;attach=3585
+Thanks to http://letmeknow.fr/blog/tuto-ajouter-le-bluetooth-au-arduino/ to...
 */
 
 #include <avr/wdt.h>
 
-int loop_count=0;
+//Commands
+#define C_START ((const char)'s')
+#define C_START_INSEC ((const char)'z')
+
+
+//Returns
+#define R_START_OK               "START OK"
+#define R_START_INSEC_OK         "START INSEC OK"
+#define R_ERREUR_UNKNOWN_COMMAND "ERREUR UNKNOWN COMMAND"
+
+
+//Movements
+#define MVT_FORTH  "FORTH"
+#define MVT_BACK   "BACK"
+#define MVT_RIGHT  "RIGH"
+#define MVT_LEFT   "LEFT"
+
+//Motors speed
+#define SPEED_HIGH "HIGH"
+#define SPEED_LOW  "LOW"
+
+int robot_started;
 
 /**
  * Init function
  */
-void setud() {
-  watchdogSetup();
+void setup() {  
+  //Initialize the serial link
+  Serial.begin(9600);
+  
+  //Robot is stopped at first
+  robot_started = 0;
 }
 
 /**
@@ -50,6 +76,31 @@ void watchdogSetup(void) {
  * Function loop
  */
 void loop() {
+  
+  char read;
+  
+  if (Serial.available()>0) {
+    //Reads a byte from the serial interface
+    read = Serial.read();
+    
+    if (!robot_started) {
+      switch (read) {
+        case C_START :
+          //start watchdog
+          watchdogSetup();
+          robot_started = 1;
+          Serial.println(R_START_OK);      
+          break;
+        case C_START_INSEC :
+          //nothing atm
+          robot_started = 1;
+          Serial.println(R_START_INSEC_OK);
+          break;
+        default :
+          Serial.println(R_ERREUR_UNKNOWN_COMMAND);      
+      }
+    }
+  }
 }
 
 
