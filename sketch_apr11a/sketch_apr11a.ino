@@ -5,7 +5,7 @@ Gabriel   MABILLE
 Frederic  RECOULES
 
 Huge thanks to Mr Nicolas Larsen : http://forum.arduino.cc/index.php?action=dlattach;topic=63651.0;attach=3585
-Thanks to http://letmeknow.fr/blog/tuto-ajouter-le-bluetooth-au-arduino/ to...
+Thanks to http://letmeknow.fr/blog/tuto-ajouter-le-bluetooth-au-arduino/ too for the bluetooth tutorial.
 */
 
 #include <avr/wdt.h>
